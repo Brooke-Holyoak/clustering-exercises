@@ -140,3 +140,108 @@ def train_validate_test_split(df):
     train, validate = train_test_split(train_and_validate, train_size=0.75, random_state=123)
     return train, validate, test
 
+def create_features(df):
+    df['age'] = 2017 - df.yearbuilt
+    df['age_bin'] = pd.cut(df.age, 
+                           bins = [0, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140],
+                           labels = [0, .066, .133, .20, .266, .333, .40, .466, .533, 
+                                     .60, .666, .733, .8, .866, .933])
+
+    # create taxrate variable
+    df['taxrate'] = df.taxamount/df.taxvaluedollarcnt*100
+
+    # create acres variable
+    df['acres'] = df.lotsizesquarefeet/43560
+
+    # bin acres
+    df['acres_bin'] = pd.cut(df.acres, bins = [0, .10, .15, .25, .5, 1, 5, 10, 20, 50, 200], 
+                       labels = [0, .1, .2, .3, .4, .5, .6, .7, .8, .9])
+
+    # square feet bin
+    df['sqft_bin'] = pd.cut(df.calculatedfinishedsquarefeet, 
+                            bins = [0, 800, 1000, 1250, 1500, 2000, 2500, 3000, 4000, 7000, 12000],
+                            labels = [0, .1, .2, .3, .4, .5, .6, .7, .8, .9]
+                       )
+
+    # dollar per square foot-structure
+    df['structure_dollar_per_sqft'] = df.structuretaxvaluedollarcnt/df.calculatedfinishedsquarefeet
+
+
+    df['structure_dollar_sqft_bin'] = pd.cut(df.structure_dollar_per_sqft, 
+                                             bins = [0, 25, 50, 75, 100, 150, 200, 300, 500, 1000, 1500],
+                                             labels = [0, .1, .2, .3, .4, .5, .6, .7, .8, .9]
+                                            )
+
+
+    # dollar per square foot-land
+    df['land_dollar_per_sqft'] = df.landtaxvaluedollarcnt/df.lotsizesquarefeet
+
+    df['lot_dollar_sqft_bin'] = pd.cut(df.land_dollar_per_sqft, bins = [0, 1, 5, 20, 50, 100, 250, 500, 1000, 1500, 2000],
+                                       labels = [0, .1, .2, .3, .4, .5, .6, .7, .8, .9]
+                                      )
+
+
+    # update datatypes of binned values to be float
+    df = df.astype({'sqft_bin': 'float64', 'acres_bin': 'float64', 'age_bin': 'float64',
+                    'structure_dollar_sqft_bin': 'float64', 'lot_dollar_sqft_bin': 'float64'})
+
+
+    # ratio of bathrooms to bedrooms
+    df['bath_bed_ratio'] = df.bathroomcnt/df.bedroomcnt
+
+    # 12447 is the ID for city of LA. 
+    # I confirmed through sampling and plotting, as well as looking up a few addresses.
+    df['cola'] = df['regionidcity'].apply(lambda x: 1 if x == 12447.0 else 0)
+
+    return df
+
+def split(df, target_var):
+    '''
+    This function takes in the dataframe and target variable name as arguments and then
+    splits the dataframe into train (56%), validate (24%), & test (20%)
+    It will return a list containing the following dataframes: train (for exploration), 
+    X_train, X_validate, X_test, y_train, y_validate, y_test
+    '''
+    # split df into train_validate (80%) and test (20%)
+    train_validate, test = train_test_split(df, test_size=.20, random_state=13)
+    # split train_validate into train(70% of 80% = 56%) and validate (30% of 80% = 24%)
+    train, validate = train_test_split(train_validate, test_size=.3, random_state=13)
+
+    # create X_train by dropping the target variable 
+    X_train = train.drop(columns=[target_var])
+    # create y_train by keeping only the target variable.
+    y_train = train[[target_var]]
+
+    # create X_validate by dropping the target variable 
+    X_validate = validate.drop(columns=[target_var])
+    # create y_validate by keeping only the target variable.
+    y_validate = validate[[target_var]]
+
+    # create X_test by dropping the target variable 
+    X_test = test.drop(columns=[target_var])
+    # create y_test by keeping only the target variable.
+    y_test = test[[target_var]]
+
+    partitions = [train, X_train, X_validate, X_test, y_train, y_validate, y_test]
+    return partitions
+
+def scaled_data(X_train, X_validate, X_test, y_train, y_validate, y_test):
+
+    # Make the scaler
+    scaler = MinMaxScaler()
+
+    # Fit the scaler
+    scaler.fit(X_train)
+
+    # Use the scaler
+    X_train_scaled = pd.DataFrame(scaler.transform(X_train), columns=X_train.columns)
+    X_validate_scaled = pd.DataFrame(scaler.transform(X_validate), columns=X_validate.columns)
+    X_test_scaled = pd.DataFrame(scaler.transform(X_test), columns=X_test.columns)
+    
+    # Make y_values separate dataframes
+    y_train = pd.DataFrame(y_train)
+    y_validate = pd.DataFrame(y_validate)
+    y_test = pd.DataFrame(y_test)
+    #Unscaled data for later
+    X_unscaled= pd.DataFrame(scaler.inverse_transform(X_test), columns=X_test.columns)
+    return X_train_scaled, X_validate_scaled, X_test_scaled, y_train, y_validate, y_test, X_unscaled
