@@ -65,6 +65,17 @@ def remove_columns(df, cols_to_remove):
     df = df.drop(columns=cols_to_remove)
     return df
 
+def final_df(df):
+    # drop unnecessary columns
+    dropcols = ['taxamount', 'fips', 
+                'yearbuilt', 'county',
+                'lotsizesquarefeet', 'regionidcity', 'regionidzip', 
+                'structuretaxvaluedollarcnt', 'landtaxvaluedollarcnt', 
+                         ]
+
+    df = remove_columns(df, dropcols)
+    return df
+
 def wrangle_zillow():
     if os.path.isfile('zillow_cached.csv') == False:
         df = get_zillow(sql)
@@ -99,7 +110,7 @@ def wrangle_zillow():
          'propertylandusetypeid',
          'propertyzoningdesc',
          'censustractandblock',
-         'propertylandusedesc']
+         'propertylandusedesc', 'transactiondate', 'heatingorsystemdesc']
 
     df = remove_columns(df, dropcols)
 
@@ -107,7 +118,7 @@ def wrangle_zillow():
     df.unitcnt.fillna(1, inplace = True)
 
     # assume that since this is Southern CA, null means 'None' for heating system
-    df.heatingorsystemdesc.fillna('None', inplace = True)
+    # df.heatingorsystemdesc.fillna('None', inplace = True)
 
     # replace nulls with median values for select columns
     df.lotsizesquarefeet.fillna(7313, inplace = True)
@@ -245,3 +256,18 @@ def scaled_data(X_train, X_validate, X_test, y_train, y_validate, y_test):
     #Unscaled data for later
     X_unscaled= pd.DataFrame(scaler.inverse_transform(X_test), columns=X_test.columns)
     return X_train_scaled, X_validate_scaled, X_test_scaled, y_train, y_validate, y_test, X_unscaled
+
+
+def correlation_exploration(train, x_string, y_string):
+    '''
+    This function takes in a df, a string for an x-axis variable in the df, 
+    and a string for a y-axis variable in the df and displays a scatter plot, the r-
+    squared value, and the p-value. It explores the correlation between input the x 
+    and y variables.
+    '''
+    r, p = stats.pearsonr(train[x_string], train[y_string])
+    df.plot.scatter(x_string, y_string)
+    plt.title(f"{x_string}'s Relationship with {y_string}")
+    print(f'The p-value is: {p}. There is {round(p,3)}% chance that we see these results by chance.')
+    print(f'r = {round(r, 2)}')
+    plt.show()
